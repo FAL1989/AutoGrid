@@ -1,14 +1,13 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/auth-context";
 
-function LoginForm() {
+export default function RegisterPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const { login, isLoading: authLoading } = useAuth();
+  const { register, isLoading: authLoading } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,13 +19,25 @@ function LoginForm() {
     const formData = new FormData(e.currentTarget);
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
+    const confirmPassword = formData.get("confirmPassword") as string;
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      setIsLoading(false);
+      return;
+    }
+
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters");
+      setIsLoading(false);
+      return;
+    }
 
     try {
-      await login(email, password);
-      const redirect = searchParams.get("redirect") || "/dashboard";
-      router.push(redirect);
+      await register(email, password);
+      router.push("/dashboard");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Invalid email or password");
+      setError(err instanceof Error ? err.message : "Registration failed");
     } finally {
       setIsLoading(false);
     }
@@ -41,11 +52,11 @@ function LoginForm() {
           <Link href="/" className="inline-flex items-center gap-2 text-2xl font-bold">
             <span>AutoGrid</span>
           </Link>
-          <h1 className="mt-6 text-2xl font-bold">Sign in to your account</h1>
+          <h1 className="mt-6 text-2xl font-bold">Create your account</h1>
           <p className="mt-2 text-muted-foreground">
-            Or{" "}
-            <Link href="/register" className="text-primary hover:underline">
-              create a new account
+            Already have an account?{" "}
+            <Link href="/login" className="text-primary hover:underline">
+              Sign in
             </Link>
           </p>
         </div>
@@ -73,17 +84,9 @@ function LoginForm() {
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <label htmlFor="password" className="text-sm font-medium">
-                Password
-              </label>
-              <Link
-                href="/forgot-password"
-                className="text-sm text-primary hover:underline"
-              >
-                Forgot password?
-              </Link>
-            </div>
+            <label htmlFor="password" className="block text-sm font-medium mb-2">
+              Password
+            </label>
             <input
               id="password"
               name="password"
@@ -94,6 +97,43 @@ function LoginForm() {
               className="w-full px-4 py-3 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50"
               placeholder="Min. 8 characters"
             />
+          </div>
+
+          <div>
+            <label htmlFor="confirmPassword" className="block text-sm font-medium mb-2">
+              Confirm password
+            </label>
+            <input
+              id="confirmPassword"
+              name="confirmPassword"
+              type="password"
+              required
+              disabled={loading}
+              minLength={8}
+              className="w-full px-4 py-3 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50"
+              placeholder="Repeat your password"
+            />
+          </div>
+
+          <div className="flex items-start">
+            <input
+              id="terms"
+              name="terms"
+              type="checkbox"
+              required
+              disabled={loading}
+              className="mt-1 h-4 w-4 rounded border-border bg-background text-primary focus:ring-primary"
+            />
+            <label htmlFor="terms" className="ml-2 text-sm text-muted-foreground">
+              I agree to the{" "}
+              <Link href="/terms" className="text-primary hover:underline">
+                Terms of Service
+              </Link>{" "}
+              and{" "}
+              <Link href="/privacy" className="text-primary hover:underline">
+                Privacy Policy
+              </Link>
+            </label>
           </div>
 
           <button
@@ -123,10 +163,10 @@ function LoginForm() {
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   />
                 </svg>
-                Signing in...
+                Creating account...
               </>
             ) : (
-              "Sign in"
+              "Create account"
             )}
           </button>
         </form>
@@ -181,31 +221,5 @@ function LoginForm() {
         </div>
       </div>
     </div>
-  );
-}
-
-function LoginFormFallback() {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
-      <div className="w-full max-w-md space-y-8">
-        <div className="text-center">
-          <span className="text-2xl font-bold">AutoGrid</span>
-          <h1 className="mt-6 text-2xl font-bold">Sign in to your account</h1>
-        </div>
-        <div className="space-y-6">
-          <div className="h-12 bg-muted animate-pulse rounded-lg" />
-          <div className="h-12 bg-muted animate-pulse rounded-lg" />
-          <div className="h-12 bg-primary/20 animate-pulse rounded-lg" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export default function LoginPage() {
-  return (
-    <Suspense fallback={<LoginFormFallback />}>
-      <LoginForm />
-    </Suspense>
   );
 }
