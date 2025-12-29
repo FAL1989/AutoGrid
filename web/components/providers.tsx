@@ -41,8 +41,8 @@ export function Providers({ children }: ProvidersProps) {
             {children}
             <ToastContainer />
           </WebSocketProvider>
-          <ReactQueryDevtools initialIsOpen={false} />
         </AuthProvider>
+        <ReactQueryDevtools initialIsOpen={false} />
       </QueryClientProvider>
     </ThemeProvider>
   );

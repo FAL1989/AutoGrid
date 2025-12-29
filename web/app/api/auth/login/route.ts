@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
+// Force dynamic rendering because this route uses cookies
+export const dynamic = 'force-dynamic';
+
 const API_BASE_URL = process.env.API_URL || "http://localhost:8000";
 
 interface LoginRequest {

@@ -1,9 +1,11 @@
+"use client";
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiClient, ExchangeCredential, ExchangeCredentialCreate } from "@/lib/api";
+import { apiClient, ExchangeCredentialCreate } from "@/lib/api";
 import { queryKeys } from "@/lib/query/keys";
 
 /**
- * Hook to fetch all exchange credentials
+ * Hook to fetch exchange credentials
  */
 export function useCredentials() {
   return useQuery({
@@ -13,7 +15,7 @@ export function useCredentials() {
 }
 
 /**
- * Hook to fetch a single credential by ID
+ * Hook to fetch a single credential
  */
 export function useCredential(id: string) {
   return useQuery({
@@ -24,9 +26,9 @@ export function useCredential(id: string) {
 }
 
 /**
- * Hook to add a new exchange credential
+ * Hook to create new exchange credential
  */
-export function useAddCredential() {
+export function useCreateCredential() {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -38,69 +40,26 @@ export function useAddCredential() {
 }
 
 /**
- * Hook to delete an exchange credential
+ * Hook to delete credential
  */
 export function useDeleteCredential() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (id: string) => apiClient.deleteCredential(id),
-    onMutate: async (id) => {
-      await queryClient.cancelQueries({ queryKey: queryKeys.credentials.list() });
-
-      const previousCredentials = queryClient.getQueryData<ExchangeCredential[]>(
-        queryKeys.credentials.list()
-      );
-
-      if (previousCredentials) {
-        queryClient.setQueryData<ExchangeCredential[]>(
-          queryKeys.credentials.list(),
-          previousCredentials.filter((cred) => cred.id !== id)
-        );
-      }
-
-      return { previousCredentials };
-    },
-    onError: (_, __, context) => {
-      if (context?.previousCredentials) {
-        queryClient.setQueryData(
-          queryKeys.credentials.list(),
-          context.previousCredentials
-        );
-      }
-    },
-    onSettled: () => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.credentials.all });
     },
   });
 }
 
 /**
- * Hook to refresh markets for a credential
+ * Hook to fetch available markets for a credential
  */
-export function useRefreshMarkets() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (credentialId: string) => apiClient.refreshMarkets(credentialId),
-    onSuccess: (_, credentialId) => {
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.credentials.markets(credentialId),
-      });
-    },
-  });
-}
-
-/**
- * Hook to get available markets for a credential
- */
-export function useMarkets(credentialId: string) {
+export function useCredentialMarkets(credentialId: string) {
   return useQuery({
     queryKey: queryKeys.credentials.markets(credentialId),
-    queryFn: async () => {
-      const result = await apiClient.refreshMarkets(credentialId);
-      return result.markets;
-    },
+    queryFn: () => apiClient.refreshMarkets(credentialId),
     enabled: !!credentialId,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });

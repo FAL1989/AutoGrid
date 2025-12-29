@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
+// Force dynamic rendering because this route uses cookies
+export const dynamic = 'force-dynamic';
+
 export async function POST() {
   try {
     const cookieStore = await cookies();

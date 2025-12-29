@@ -4,10 +4,13 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
+import { useCreateBot } from "@/hooks/use-bots";
+import { useCredentials } from "@/hooks/use-credentials";
+import { useState } from "react";
 
 const gridSchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
-  exchange: z.enum(["binance", "mexc", "bybit"]),
+  credential_id: z.string().min(1, "Select an exchange credential"),
   symbol: z.string().min(1, "Symbol is required"),
   investment: z.number().min(10, "Minimum investment is $10"),
   lowerPrice: z.number().positive("Must be positive"),
@@ -22,6 +25,10 @@ type GridFormData = z.infer<typeof gridSchema>;
 
 export function GridConfigForm() {
   const router = useRouter();
+  const createBot = useCreateBot();
+  const { data: credentials, isLoading: credentialsLoading } = useCredentials();
+  const [error, setError] = useState<string | null>(null);
+
   const {
     register,
     handleSubmit,
@@ -30,7 +37,6 @@ export function GridConfigForm() {
   } = useForm<GridFormData>({
     resolver: zodResolver(gridSchema),
     defaultValues: {
-      exchange: "binance",
       gridCount: 20,
     },
   });
@@ -49,12 +55,24 @@ export function GridConfigForm() {
     : "-";
 
   const onSubmit = async (data: GridFormData) => {
+    setError(null);
     try {
-      // TODO: Call API to create bot
-      console.log("Creating grid bot:", data);
-      router.push("/dashboard/bots");
-    } catch (error) {
-      console.error("Failed to create bot:", error);
+      await createBot.mutateAsync({
+        name: data.name,
+        strategy: "grid",
+        credential_id: data.credential_id,
+        symbol: data.symbol,
+        config: {
+          lower_price: data.lowerPrice,
+          upper_price: data.upperPrice,
+          grid_count: data.gridCount,
+          investment: data.investment,
+        },
+      });
+      router.push("/dashboard");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to create bot";
+      setError(message);
     }
   };
 
@@ -72,17 +90,35 @@ export function GridConfigForm() {
         )}
       </div>
 
+      {error && (
+        <div className="p-4 rounded-lg bg-red-500/10 border border-red-500 text-red-500">
+          {error}
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium mb-2">Exchange</label>
+          <label className="block text-sm font-medium mb-2">Exchange Credential</label>
           <select
-            {...register("exchange")}
+            {...register("credential_id")}
             className="w-full px-4 py-2 rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary"
+            disabled={credentialsLoading}
           >
-            <option value="binance">Binance</option>
-            <option value="mexc">MEXC</option>
-            <option value="bybit">Bybit</option>
+            <option value="">Select a credential...</option>
+            {credentials?.map((cred) => (
+              <option key={cred.id} value={cred.id}>
+                {cred.exchange.toUpperCase()} {cred.is_testnet ? "(Testnet)" : ""}
+              </option>
+            ))}
           </select>
+          {errors.credential_id && (
+            <p className="mt-1 text-sm text-red-500">{errors.credential_id.message}</p>
+          )}
+          {!credentialsLoading && (!credentials || credentials.length === 0) && (
+            <p className="mt-1 text-sm text-yellow-500">
+              No credentials found. <a href="/dashboard/settings" className="underline">Add one first</a>
+            </p>
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium mb-2">Trading Pair</label>
@@ -180,10 +216,10 @@ export function GridConfigForm() {
 
       <button
         type="submit"
-        disabled={isSubmitting}
+        disabled={isSubmitting || createBot.isPending}
         className="w-full py-3 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
       >
-        {isSubmitting ? "Creating..." : "Create Grid Bot"}
+        {isSubmitting || createBot.isPending ? "Creating..." : "Create Grid Bot"}
       </button>
     </form>
   );

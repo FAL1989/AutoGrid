@@ -9,26 +9,52 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { usePnLChartData } from "@/hooks/use-dashboard";
+import { useRealtimePnL } from "@/hooks/use-realtime";
+import { useQueryClient } from "@tanstack/react-query";
 
 export function PnLChart() {
-  // TODO: Fetch real P&L data from API
-  const data = [
-    { date: "Jan 1", pnl: 0 },
-    { date: "Jan 2", pnl: 45 },
-    { date: "Jan 3", pnl: 120 },
-    { date: "Jan 4", pnl: 98 },
-    { date: "Jan 5", pnl: 234 },
-    { date: "Jan 6", pnl: 456 },
-    { date: "Jan 7", pnl: 543 },
-    { date: "Jan 8", pnl: 489 },
-    { date: "Jan 9", pnl: 678 },
-    { date: "Jan 10", pnl: 789 },
-    { date: "Jan 11", pnl: 876 },
-    { date: "Jan 12", pnl: 934 },
-    { date: "Jan 13", pnl: 1023 },
-    { date: "Jan 14", pnl: 1156 },
-    { date: "Jan 15", pnl: 1234 },
-  ];
+  const queryClient = useQueryClient();
+  const { data: chartData, isLoading, error, refetch } = usePnLChartData();
+
+  // Real-time P&L updates
+  useRealtimePnL((payload) => {
+    queryClient.invalidateQueries({
+      queryKey: ["stats", "dashboard", "pnl-chart"]
+    });
+  });
+
+  if (isLoading) {
+    return (
+      <div className="p-6 rounded-xl border border-border bg-card">
+        <h3 className="text-lg font-semibold mb-4">Cumulative P&L</h3>
+        <div className="h-[300px] flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 rounded-xl border border-border bg-card">
+        <h3 className="text-lg font-semibold mb-4">Cumulative P&L</h3>
+        <div className="h-[300px] flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-red-500 mb-2">Failed to load P&L data</p>
+            <button
+              onClick={() => refetch()}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const data = chartData || [];
 
   return (
     <div className="p-6 rounded-xl border border-border bg-card">
