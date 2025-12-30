@@ -101,7 +101,7 @@ export function useStartBot() {
       if (previousBot) {
         queryClient.setQueryData<Bot>(queryKeys.bots.detail(id), {
           ...previousBot,
-          status: "running",
+          status: "starting",
         });
       }
 
@@ -110,7 +110,7 @@ export function useStartBot() {
         queryClient.setQueryData<Bot[]>(
           queryKeys.bots.lists(),
           previousBots.map((bot) =>
-            bot.id === id ? { ...bot, status: "running" } : bot
+            bot.id === id ? { ...bot, status: "starting" } : bot
           )
         );
       }
@@ -152,7 +152,7 @@ export function useStopBot() {
       if (previousBot) {
         queryClient.setQueryData<Bot>(queryKeys.bots.detail(id), {
           ...previousBot,
-          status: "stopped",
+          status: "stopping",
         });
       }
 
@@ -160,7 +160,7 @@ export function useStopBot() {
         queryClient.setQueryData<Bot[]>(
           queryKeys.bots.lists(),
           previousBots.map((bot) =>
-            bot.id === id ? { ...bot, status: "stopped" } : bot
+            bot.id === id ? { ...bot, status: "stopping" } : bot
           )
         );
       }

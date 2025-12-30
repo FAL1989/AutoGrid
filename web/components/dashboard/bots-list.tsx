@@ -13,6 +13,8 @@ const statusLabels = {
   stopped: "Stopped",
   paused: "Paused",
   error: "Error",
+  starting: "Starting",
+  stopping: "Stopping",
 };
 
 interface BotCardProps {
@@ -26,7 +28,12 @@ interface BotCardProps {
 function BotCard({ bot, onStart, onStop, isStarting, isStopping }: BotCardProps) {
   const totalPnl = bot.realized_pnl + bot.unrealized_pnl;
   const pnlColor = totalPnl >= 0 ? "text-green-500" : "text-red-500";
-  const isLoading = isStarting || isStopping;
+  const isStartingStatus = bot.status === "starting";
+  const isStoppingStatus = bot.status === "stopping";
+  const isLoading = isStarting || isStopping || isStartingStatus || isStoppingStatus;
+  const showStop = bot.status === "running" || bot.status === "stopping";
+  const startLabel = isStartingStatus || isStarting ? "Starting..." : "Start";
+  const stopLabel = isStoppingStatus || isStopping ? "Stopping..." : "Stop";
 
   return (
     <div className="p-4 rounded-lg border border-border bg-card hover:border-primary/50 transition-colors">
@@ -67,14 +74,14 @@ function BotCard({ bot, onStart, onStop, isStarting, isStopping }: BotCardProps)
       </div>
 
       <div className="flex gap-2">
-        {bot.status === "running" ? (
+        {showStop ? (
           <button
             onClick={() => onStop(bot.id)}
             disabled={isLoading}
             className="flex-1 px-3 py-2 text-sm border border-border rounded-lg hover:bg-muted transition-colors disabled:opacity-50 flex items-center justify-center"
           >
             {isStopping && <ButtonSpinner />}
-            Stop
+            {stopLabel}
           </button>
         ) : (
           <button
@@ -83,7 +90,7 @@ function BotCard({ bot, onStart, onStop, isStarting, isStopping }: BotCardProps)
             className="flex-1 px-3 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center"
           >
             {isStarting && <ButtonSpinner />}
-            Start
+            {startLabel}
           </button>
         )}
         <Link
