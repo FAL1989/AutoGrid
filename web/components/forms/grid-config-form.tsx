@@ -5,7 +5,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
 import { useCreateBot } from "@/hooks/use-bots";
-import { useCredentials } from "@/hooks/use-credentials";
+import { useCredentials, useCredentialBalance, useCredentialTicker } from "@/hooks/use-credentials";
+import { formatCurrency } from "@/lib/utils";
 import { useState } from "react";
 
 const gridSchema = z.object({
@@ -33,6 +34,7 @@ export function GridConfigForm() {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<GridFormData>({
     resolver: zodResolver(gridSchema),
@@ -41,10 +43,19 @@ export function GridConfigForm() {
     },
   });
 
+  const credentialId = watch("credential_id");
+  const symbol = watch("symbol");
   const lowerPrice = watch("lowerPrice");
   const upperPrice = watch("upperPrice");
   const gridCount = watch("gridCount");
   const investment = watch("investment");
+
+  const {
+    data: ticker,
+    isFetching: tickerLoading,
+    refetch: refetchTicker,
+  } = useCredentialTicker(credentialId, symbol);
+  const { data: balance } = useCredentialBalance(credentialId, symbol);
 
   const gridSpacing = lowerPrice && upperPrice && gridCount
     ? ((upperPrice - lowerPrice) / gridCount).toFixed(2)
@@ -53,6 +64,26 @@ export function GridConfigForm() {
   const profitPerGrid = lowerPrice && upperPrice && gridCount
     ? (((upperPrice - lowerPrice) / gridCount / lowerPrice) * 100).toFixed(2)
     : "-";
+
+  const applySuggestedRange = (percent: number) => {
+    if (!ticker?.last) {
+      return;
+    }
+    const lower = Number((ticker.last * (1 - percent)).toFixed(2));
+    const upper = Number((ticker.last * (1 + percent)).toFixed(2));
+    setValue("lowerPrice", lower, { shouldDirty: true, shouldValidate: true });
+    setValue("upperPrice", upper, { shouldDirty: true, shouldValidate: true });
+  };
+
+  const applyAvailableInvestment = () => {
+    if (!balance) {
+      return;
+    }
+    setValue("investment", Number(balance.free_quote.toFixed(2)), {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  };
 
   const onSubmit = async (data: GridFormData) => {
     setError(null);
@@ -130,6 +161,59 @@ export function GridConfigForm() {
           {errors.symbol && (
             <p className="mt-1 text-sm text-red-500">{errors.symbol.message}</p>
           )}
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-border bg-muted/30 px-4 py-3">
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">Current Price</span>
+          <span className="font-mono">
+            {ticker?.last ? formatCurrency(ticker.last) : "-"}
+          </span>
+        </div>
+        {balance ? (
+          <div className="mt-2 text-xs text-muted-foreground">
+            Available: {balance.free_base.toFixed(6)} {balance.base} •{" "}
+            {formatCurrency(balance.free_quote)} {balance.quote}
+          </div>
+        ) : (
+          <div className="mt-2 text-xs text-muted-foreground">
+            Available: -
+          </div>
+        )}
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => refetchTicker()}
+            disabled={!credentialId || !symbol || tickerLoading}
+            className="px-3 py-1.5 text-xs rounded-md border border-border hover:bg-muted disabled:opacity-50"
+          >
+            {tickerLoading ? "Refreshing..." : "Refresh Price"}
+          </button>
+          <button
+            type="button"
+            onClick={applyAvailableInvestment}
+            disabled={!balance?.free_quote}
+            className="px-3 py-1.5 text-xs rounded-md border border-border hover:bg-muted disabled:opacity-50"
+          >
+            Use Available {balance?.quote ?? "Quote"}
+          </button>
+          <button
+            type="button"
+            onClick={() => applySuggestedRange(0.02)}
+            disabled={!ticker?.last}
+            className="px-3 py-1.5 text-xs rounded-md border border-border hover:bg-muted disabled:opacity-50"
+          >
+            Use ±2%
+          </button>
+          <button
+            type="button"
+            onClick={() => applySuggestedRange(0.03)}
+            disabled={!ticker?.last}
+            className="px-3 py-1.5 text-xs rounded-md border border-border hover:bg-muted disabled:opacity-50"
+          >
+            Use ±3%
+          </button>
         </div>
       </div>
 

@@ -64,3 +64,27 @@ export function useCredentialMarkets(credentialId: string) {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
+
+/**
+ * Hook to fetch ticker for a symbol using a credential
+ */
+export function useCredentialTicker(credentialId: string, symbol: string) {
+  return useQuery({
+    queryKey: queryKeys.credentials.ticker(credentialId, symbol),
+    queryFn: () => apiClient.getTicker(credentialId, symbol),
+    enabled: !!credentialId && !!symbol,
+    staleTime: 30 * 1000, // 30 seconds
+  });
+}
+
+/**
+ * Hook to fetch balance for a symbol using a credential
+ */
+export function useCredentialBalance(credentialId: string, symbol: string) {
+  return useQuery({
+    queryKey: queryKeys.credentials.balance(credentialId, symbol),
+    queryFn: () => apiClient.getBalance(credentialId, symbol),
+    enabled: !!credentialId && !!symbol,
+    staleTime: 30 * 1000, // 30 seconds
+  });
+}
