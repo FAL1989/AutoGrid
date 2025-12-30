@@ -7,6 +7,7 @@ const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: "📊" },
   { name: "My Bots", href: "/dashboard/bots", icon: "🤖" },
   { name: "Backtest", href: "/dashboard/backtest", icon: "📈" },
+  { name: "Reports", href: "/dashboard/reports", icon: "🧾" },
   { name: "Settings", href: "/dashboard/settings", icon: "⚙️" },
 ];
 

@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useState } from "react";
 import { useGridVisualization } from "@/hooks/use-grid-visualization";
-import { useRealtimeOrders, useRealtimeTrades } from "@/hooks/use-realtime";
+import { useRealtimeOrders } from "@/hooks/use-realtime";
 import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query/keys";
+import type { OrderUpdatePayload } from "@/lib/websocket/ws-client";
 
 interface GridVisualizationProps {
   botId: string;
@@ -14,32 +16,89 @@ export function GridVisualization({ botId }: GridVisualizationProps) {
   const [fillAnimations, setFillAnimations] = useState<Set<string>>(new Set());
   const queryClient = useQueryClient();
 
+  const buildLevelKey = useCallback((price: number, side: "buy" | "sell") => {
+    return `${side}:${price.toFixed(8)}`;
+  }, []);
+
+  const addFillAnimation = useCallback((levelKey: string) => {
+    setFillAnimations((prev) => {
+      const next = new Set(prev);
+      next.add(levelKey);
+      return next;
+    });
+
+    setTimeout(() => {
+      setFillAnimations((prev) => {
+        const next = new Set(prev);
+        next.delete(levelKey);
+        return next;
+      });
+    }, 2000);
+  }, []);
+
+  const resolveLevelKey = useCallback(
+    (orderId?: string, averageFillPrice?: number) => {
+      if (orderId) {
+        const matched = gridLevels.find((level) => level.orderId === orderId);
+        if (matched) {
+          return buildLevelKey(matched.price, matched.side);
+        }
+      }
+
+      if (averageFillPrice && gridLevels.length > 0) {
+        const spacing =
+          gridLevels.length > 1
+            ? Math.abs(gridLevels[1].price - gridLevels[0].price)
+            : 0;
+        const tolerance = spacing > 0 ? spacing * 0.2 : 0;
+
+        let closest = gridLevels[0];
+        let closestDiff = Math.abs(closest.price - averageFillPrice);
+
+        for (const level of gridLevels) {
+          const diff = Math.abs(level.price - averageFillPrice);
+          if (diff < closestDiff) {
+            closest = level;
+            closestDiff = diff;
+          }
+        }
+
+        if (tolerance === 0 || closestDiff <= tolerance) {
+          return buildLevelKey(closest.price, closest.side);
+        }
+      }
+
+      return null;
+    },
+    [buildLevelKey, gridLevels]
+  );
+
+  const handleOrderUpdate = useCallback(
+    (payload: OrderUpdatePayload) => {
+      if (payload.bot_id !== botId) return;
+
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.orders.open(botId),
+      });
+
+      if (payload.order.status !== "filled") {
+        return;
+      }
+
+      const levelKey = resolveLevelKey(
+        payload.order.id,
+        payload.order.average_fill_price
+      );
+
+      if (levelKey) {
+        addFillAnimation(levelKey);
+      }
+    },
+    [addFillAnimation, botId, queryClient, resolveLevelKey]
+  );
+
   // Real-time order updates
-  useRealtimeOrders((payload) => {
-    if (payload.bot_id === botId) {
-      queryClient.invalidateQueries({ queryKey: ["orders", "open", botId] });
-    }
-  }, botId);
-
-  // Real-time trade animations
-  useRealtimeTrades((payload) => {
-    if (payload.bot_id === botId) {
-      const tradeId = payload.trade.id;
-      setFillAnimations(prev => new Set(prev).add(tradeId));
-
-      // Remove animation after 2 seconds
-      setTimeout(() => {
-        setFillAnimations(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(tradeId);
-          return newSet;
-        });
-      }, 2000);
-
-      // Refresh data
-      queryClient.invalidateQueries({ queryKey: ["orders", "open", botId] });
-    }
-  }, botId);
+  useRealtimeOrders(handleOrderUpdate, botId);
 
   if (!bot || bot.strategy !== "grid") {
     return (
@@ -63,7 +122,8 @@ export function GridVisualization({ botId }: GridVisualizationProps) {
 
       <div className="space-y-1 max-h-96 overflow-y-auto">
         {gridLevels.slice().reverse().map((level) => {
-          const isAnimating = level.orderId && fillAnimations.has(level.orderId);
+          const levelKey = buildLevelKey(level.price, level.side);
+          const isAnimating = fillAnimations.has(levelKey);
 
           return (
             <div
