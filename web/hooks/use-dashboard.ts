@@ -14,15 +14,21 @@ export function useDashboardStats() {
       // Get all bots
       const bots = await apiClient.getBots();
 
-      // Get statistics for each running bot
-      const statsPromises = bots
-        .filter((bot) => bot.status === "running" || bot.realized_pnl !== 0)
-        .map((bot) =>
-          apiClient.getBotStatistics(bot.id).catch(() => ({
-            orders: { total: 0, open: 0, filled: 0, cancelled: 0 },
-            trades: { total: 0, buy_count: 0, sell_count: 0, total_volume: 0 },
-          }))
-        );
+      // Get statistics for each bot
+      const statsPromises = bots.map((bot) =>
+        apiClient.getBotStatistics(bot.id).catch(() => ({
+          orders: { total: 0, open: 0, filled: 0, cancelled: 0 },
+          trades: {
+            total: 0,
+            buy_count: 0,
+            sell_count: 0,
+            total_volume: 0,
+            winning_trades: 0,
+            total_fees: 0,
+            total_pnl: 0,
+          },
+        }))
+      );
 
       const allStats = await Promise.all(statsPromises);
 
@@ -41,13 +47,11 @@ export function useDashboardStats() {
       );
       const activeBots = bots.filter((bot) => bot.status === "running").length;
 
-      // Calculate win rate (trades with positive realized_pnl)
-      const winningBots = bots.filter((bot) => bot.realized_pnl > 0).length;
-      const botsWithTrades = bots.filter(
-        (bot) => bot.realized_pnl !== 0 || bot.unrealized_pnl !== 0
-      ).length;
-      const winRate =
-        botsWithTrades > 0 ? (winningBots / botsWithTrades) * 100 : 0;
+      const winningTrades = allStats.reduce(
+        (sum, stat) => sum + (stat.trades.winning_trades || 0),
+        0
+      );
+      const winRate = totalTrades > 0 ? (winningTrades / totalTrades) * 100 : 0;
 
       return {
         total_pnl: totalPnl,
