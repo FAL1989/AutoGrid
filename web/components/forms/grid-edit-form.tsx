@@ -15,7 +15,7 @@ const gridSchema = z.object({
   investment: z.number().min(10, "Minimum investment is $10"),
   lowerPrice: z.number().positive("Must be positive"),
   upperPrice: z.number().positive("Must be positive"),
-  gridCount: z.number().int().min(5, "Minimum 5 grids").max(200, "Maximum 200 grids"),
+  gridCount: z.number().int().min(2, "Minimum 2 grids").max(200, "Maximum 200 grids"),
 }).refine((data) => data.lowerPrice < data.upperPrice, {
   message: "Lower price must be less than upper price",
   path: ["lowerPrice"],
@@ -242,12 +242,12 @@ export function GridEditForm({ bot, disabled = false }: { bot: Bot; disabled?: b
           {...register("gridCount", { valueAsNumber: true })}
           disabled={isDisabled}
           type="range"
-          min="5"
+          min="2"
           max="200"
           className="w-full"
         />
         <div className="flex justify-between text-xs text-muted-foreground">
-          <span>5</span>
+          <span>2</span>
           <span>200</span>
         </div>
         {errors.gridCount && (
